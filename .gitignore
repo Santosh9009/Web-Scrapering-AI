@@ -1,0 +1,47 @@
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*.local
+
+# Build files
+dist/
+build/
+.cache/
+
+# Dependency directories
+/.pnp
+.pnp.js
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Misc
+coverage/
+public/uploads/
