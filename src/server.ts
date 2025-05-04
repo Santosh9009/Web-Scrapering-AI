@@ -4,7 +4,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from 'url';
 import { scrapeWebsite } from "./scraper.js";
-import { storeEmbeddings, searchRelevantData } from "./vectorStore.js";
+import { storeEmbeddings, searchRelevantData, getStoredDocuments } from "./vectorStore.js";
 import { queryLLM } from "./llm.js";
 import dotenv from "dotenv";
 
@@ -24,7 +24,11 @@ app.post("/api/scrape", async (req, res) => {
     console.log(`[${new Date().toISOString()}] 🌐 Scraping request received for URL:`, url);
     try {
         console.log('📑 Starting web scraping with config:', config);
-        const scrapedText = await scrapeWebsite(url);
+        const scrapedPages = await scrapeWebsite(url);
+        const scrapedText = scrapedPages
+            .map(page => `${page.title}\n${page.content}`)
+            .join('\n=== New Page ===\n');
+        
         console.log(`📦 Scraped content length: ${scrapedText.length} characters`);
         
         console.log('💾 Storing embeddings...');
@@ -36,7 +40,7 @@ app.post("/api/scrape", async (req, res) => {
             message: "Website content stored successfully",
             stats: {
                 characters: scrapedText.length,
-                pages: scrapedText.split('=== New Page ===').length
+                pages: scrapedPages.length
             }
         });
     } catch (error) {
@@ -52,7 +56,7 @@ app.post("/api/query", async (req, res) => {
     try {
         console.log('🔍 Searching relevant data...');
         const relevantData = await searchRelevantData(query, url);
-        console.log(`📝 Found ${relevantData.length} relevant segments`);
+        console.log(`📝 Found ${relevantData.documents.length} relevant segments`);
         
         console.log('🤖 Querying LLM...');
         const llmResponse = await queryLLM(query, relevantData);
@@ -62,6 +66,23 @@ app.post("/api/query", async (req, res) => {
     } catch (error) {
         console.error('❌ Query processing failed:', error);
         res.status(500).json({ error: "Failed to process query" });
+    }
+});
+
+// Endpoint to retrieve stored documents
+app.get("/api/stored-data", async (req, res) => {
+    const url = req.body.url as string | undefined;
+    console.log(`[${new Date().toISOString()}] 📚 Retrieving stored data${url ? ` for URL: ${url}` : ''}`);
+    
+    try {
+        const data = await getStoredDocuments(url);
+        res.json({
+            success: true,
+            ...data
+        });
+    } catch (error) {
+        console.error('❌ Failed to retrieve stored data:', error);
+        res.status(500).json({ error: "Failed to retrieve stored data" });
     }
 });
 

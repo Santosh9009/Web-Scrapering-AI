@@ -27,6 +27,12 @@ const defaultConfig: ScrapingConfig = {
     ]
 };
 
+interface PageContent {
+    url: string;
+    title: string;
+    content: string;
+}
+
 class WebCrawler {
     private visited = new Set<string>();
     private queue: { url: string; depth: number }[] = [];
@@ -69,7 +75,12 @@ class WebCrawler {
         return [...new Set(links)];  // Remove duplicates
     }
 
-    private async extractContent($: cheerio.CheerioAPI): Promise<string> {
+    private async extractContent($: cheerio.CheerioAPI): Promise<{ content: string; title: string }> {
+        // Get page title
+        const title = $('title').text().trim() || 
+                     $('h1').first().text().trim() || 
+                     'Untitled Page';
+        
         // Remove unwanted elements
         $('script, style, nav, footer, header, [role="navigation"], iframe, noscript').remove();
         
@@ -98,13 +109,16 @@ class WebCrawler {
             content = $('body').text();
         }
 
-        return content
-            .replace(/\s+/g, ' ')
-            .replace(/\n\s*\n/g, '\n')
-            .trim();
+        return {
+            content: content
+                .replace(/\s+/g, ' ')
+                .replace(/\n\s*\n/g, '\n')
+                .trim(),
+            title
+        };
     }
 
-    async scrapePage(url: string, depth: number): Promise<{ content: string; links: string[] }> {
+    async scrapePage(url: string, depth: number): Promise<{ content: PageContent; links: string[] }> {
         console.log(`📄 Scraping page: ${url} (depth: ${depth})`);
         const page = await this.browser!.newPage();
         
@@ -113,18 +127,21 @@ class WebCrawler {
             const html = await page.content();
             const $ = cheerio.load(html);
             
-            const content = await this.extractContent($);
+            const { content, title } = await this.extractContent($);
             const links = await this.extractLinks($, url);
             
-            return { content, links };
+            return { 
+                content: { url, content, title },
+                links 
+            };
         } finally {
             await page.close();
         }
     }
 
-    async crawl(startUrl: string, config: ScrapingConfig = defaultConfig): Promise<string[]> {
+    async crawl(startUrl: string, config: ScrapingConfig = defaultConfig): Promise<PageContent[]> {
         console.log('🚀 Starting crawl with config:', config);
-        const contents: string[] = [];
+        const contents: PageContent[] = [];
         
         try {
             await this.init();
@@ -166,8 +183,7 @@ class WebCrawler {
     }
 }
 
-export async function scrapeWebsite(url: string): Promise<string> {
+export async function scrapeWebsite(url: string): Promise<PageContent[]> {
     const crawler = new WebCrawler();
-    const contents = await crawler.crawl(url);
-    return contents.join('\n\n=== New Page ===\n\n');
+    return await crawler.crawl(url);
 }

@@ -6,7 +6,7 @@ if (!GEMINI_API_KEY) {
     throw new Error("GOOGLE_API_KEY environment variable is not set");
 }
 
-export async function queryLLM(query: string, relevantData: string[]) {
+export async function queryLLM(query: string, data: { documents: string[], metadata: any[] }) {
     console.log('🤖 Initializing Gemini...');
     try {
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
@@ -14,13 +14,20 @@ export async function queryLLM(query: string, relevantData: string[]) {
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         console.log('📝 Preparing prompt with context...');
-        const prompt = `Based on the following context, answer the question:
+        const prompt = `Based on the following website content, answer the question.
+The content is from multiple pages of the website:
 
-Context: ${relevantData.join("\n")}
+${data.metadata.map((meta, i) => 
+    `Page ${i + 1}: ${meta.title}
+URL: ${meta.url}
+Content:
+${data.documents[i]}
+---`
+).join('\n\n')}
 
 Question: ${query}
 
-Answer:`;
+Please provide a clear and structured answer based on the content above. If listing pages, include their titles and URLs.`;
 
         console.log('🔄 Generating response...');
         const result = await model.generateContent(prompt);
